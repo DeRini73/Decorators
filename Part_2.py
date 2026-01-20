@@ -1,10 +1,13 @@
 import os
+import functools
+import web_parcing
+
 from datetime import datetime
-import time
 
 
 def logger(path):
     def __logger(old_function):
+        @functools.wraps(old_function)
         def new_function(*args, **kwargs):
             start = datetime.now()
             start_formatted = f"{start.day:02d}.{start.month:02d}.{start.year} в {start.hour:02d} ч {start.minute:02d} мин {start.second:02d} с"
@@ -16,11 +19,10 @@ def logger(path):
             kwargs_repr = [f'{k}={repr(v)}' for k, v in kwargs.items()]
             all_args = ", ".join(args_repr + kwargs_repr)
 
-            time.sleep(1)
+            log = (f'{start_formatted} была вызвана функция "{function_name}" с аргументами "{all_args}". '
+                   f'Результат выполнения функции: {result}\n')
 
-            log = (f'{start_formatted} была вызвана функция "{function_name}" с аргументами "{all_args}". Результат выполнения функции: {result}\n')
-
-            with open(path, 'a',encoding='utf-8') as log_file:
+            with open(path, 'a', encoding='utf-8') as log_file:
                 log_file.write(log)
 
             return result
@@ -42,18 +44,16 @@ def test_2():
             return 'Hello World'
 
         @logger(path)
+        def parce_web():
+            return web_parcing.parce_result
+
+        @logger(path)
         def summator(a, b=0):
             return a + b
 
         @logger(path)
         def div(a, b):
             return a / b
-
-        @logger(path)
-        def calculate_salary():
-            return ('Расчет заработной платы за текущий период выполнен.'
-                    'Всё очень печально, главбух сбежал.'
-                    'Её так и не нашли')
 
         assert 'Hello World' == hello_world(), "Функция возвращает 'Hello World'"
         result = summator(2, 2)
@@ -62,23 +62,15 @@ def test_2():
         result = div(6, 2)
         assert result == 3, '6 / 2 = 3'
         summator(4.3, b=2.2)
-        result = calculate_salary()
-        assert ('Расчет заработной платы за текущий период выполнен.'
-                'Всё очень печально, главбух сбежал.'
-                'Её так и не нашли'
-                in result), "Функция calculate_salary должна вернуть строку"
-
+        assert parce_web()
 
     for path in paths:
-
-
         assert os.path.exists(path), f'файл {path} должен существовать'
-
-        with open(path) as log_file:
+        with open(path, 'r', encoding='utf-8') as log_file:
             log_file_content = log_file.read()
 
         assert 'summator' in log_file_content, 'должно записаться имя функции'
-        assert 'calculate_salary' in log_file_content, 'должно записаться имя функции'
+        assert 'parce_web' in log_file_content, 'должен записаться результат парсинга'
         for item in (4.3, 2.2, 6.5):
             assert str(item) in log_file_content, f'{item} должен быть записан в файл'
 
